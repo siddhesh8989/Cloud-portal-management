@@ -1,39 +1,55 @@
-users = []
-resources = []
-violations = []
+# Self-Service Cloud Resource Provisioning Portal
 
+## Overview
 
-class DataStorage:
-    def get_all_users(self):
-        return users
+This is a **Python Flask** academic project (SEAI). The main application lives entirely in `artifacts/cloud-portal/`.
 
-    def get_user_by_username(self, username):
-        for u in users:
-            if u.get("username") == username:
-                return u
-        return None
+**No database is used.** All data is stored in Python in-memory lists (resets on restart).
 
-    def get_user_by_id(self, user_id):
-        for u in users:
-            if u.get("id") == user_id:
-                return u
-        return None
+---
 
-    def add_user(self, user):
-        users.append(user)
+## Cloud Portal — Flask App (your project)
 
-    def get_all_resources(self):
-        return resources
+| File | Purpose |
+|------|---------|
+| `artifacts/cloud-portal/app.py` | Main Flask app, all routes |
+| `artifacts/cloud-portal/policy_engine.py` | Policy validation (CPU/RAM/Storage/Region) |
+| `artifacts/cloud-portal/data_storage.py` | In-memory storage using Python lists |
+| `artifacts/cloud-portal/ml_model.py` | scikit-learn demand prediction |
+| `artifacts/cloud-portal/requirements.txt` | Python dependencies |
+| `artifacts/cloud-portal/README.md` | **Project README — start here** |
+| `artifacts/cloud-portal/templates/` | HTML templates (Jinja2 + Tailwind CSS) |
 
-    def add_resource(self, resource):
-        resources.append(resource)
+### Run locally
 
-    def delete_resource(self, resource_id):
-        global resources
-        resources[:] = [r for r in resources if r.get("id") != resource_id]
+```bash
+pip install flask bcrypt scikit-learn numpy
+python artifacts/cloud-portal/app.py
+```
 
-    def get_all_violations(self):
-        return violations
+### Storage (in-memory, no database)
 
-    def add_violation(self, violation):
-        violations.append(violation)
+```python
+# data_storage.py
+users = []       # registered users
+resources = []   # provisioned resources
+violations = []  # policy violations
+```
+
+Data resets when the server restarts — perfect for demos.
+
+---
+
+## Node.js Monorepo (background infrastructure — ignore for your project)
+
+The `lib/`, `artifacts/api-server/`, and `artifacts/mockup-sandbox/` folders are pre-existing Node.js scaffolding used by Replit's preview system. They are **not part of your Flask project** and do not use any database.
+
+- `lib/db/` — disabled stub, not connected to anything
+- `artifacts/api-server/` — lightweight proxy that forwards requests to Flask
+- `artifacts/mockup-sandbox/` — Replit design tooling, unrelated to your project
+
+---
+
+## Active Workflow
+
+- **Start application** → runs `python artifacts/cloud-portal/app.py` on port 5000
