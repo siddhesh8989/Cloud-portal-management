@@ -1,0 +1,41 @@
+POLICIES = {
+    "max_cpu": 4,
+    "max_ram": 8,
+    "max_storage": 100,
+    "allowed_regions": ["Asia", "India"],
+}
+
+
+class PolicyEngine:
+    def check(self, resource_data):
+        violations = []
+
+        cpu = resource_data.get("cpu", 0)
+        ram = resource_data.get("ram", 0)
+        storage = resource_data.get("storage", 0)
+        region = resource_data.get("region", "")
+
+        if cpu > POLICIES["max_cpu"]:
+            violations.append(
+                f"CPU exceeds allowed limit ({cpu} > {POLICIES['max_cpu']} cores)"
+            )
+
+        if ram > POLICIES["max_ram"]:
+            violations.append(
+                f"RAM exceeds allowed limit ({ram} GB > {POLICIES['max_ram']} GB)"
+            )
+
+        if storage > POLICIES["max_storage"]:
+            violations.append(
+                f"Storage exceeds allowed limit ({storage} GB > {POLICIES['max_storage']} GB)"
+            )
+
+        if region not in POLICIES["allowed_regions"]:
+            violations.append(
+                f"Region '{region}' is not allowed. Allowed regions: {', '.join(POLICIES['allowed_regions'])}"
+            )
+
+        return violations
+
+    def get_policies(self):
+        return POLICIES

@@ -1,0 +1,109 @@
+# Self-Service Cloud Efficient Resource Provisioning Portal
+
+A SEAI college project demonstrating a cloud resource management system with policy violation detection and an AI-based resource optimizer.
+
+## Tech Stack
+
+- **Backend:** Python Flask
+- **Frontend:** HTML + Tailwind CSS + Vanilla JavaScript
+- **Storage:** In-memory Python lists (no database)
+- **ML Module:** scikit-learn (Linear Regression for demand prediction)
+- **Auth:** bcrypt password hashing + Flask sessions
+
+## Installation
+
+```bash
+pip install flask bcrypt scikit-learn numpy
+```
+
+## Running the App
+
+```bash
+python app.py
+```
+
+The app runs at: **http://127.0.0.1:5000**
+
+> Note: Data is stored in-memory. All users, resources, and violations reset when the server restarts.
+
+## Project Structure
+
+```
+cloud-portal/
+├── app.py              # Main Flask application & routes
+├── policy_engine.py    # Policy validation rules
+├── data_storage.py     # In-memory storage (Python lists)
+├── ml_model.py         # Linear Regression demand predictor
+├── requirements.txt    # Python dependencies
+└── templates/
+    ├── base.html           # Sidebar layout
+    ├── login.html          # Login page
+    ├── register.html       # Registration page
+    ├── dashboard.html      # Monitoring dashboard + charts
+    ├── request_resource.html  # Resource request form
+    ├── my_resources.html   # Provisioned resources table
+    ├── violations.html     # Policy violation log
+    ├── optimizer.html      # AI Resource Optimizer
+    └── admin.html          # Admin control panel
+```
+
+## Features
+
+### 1. Authentication
+- User registration & login
+- bcrypt password hashing (rounds=8 for demo speed)
+- Role-based access: **Admin** and **User**
+
+### 2. Resource Request System
+- Request Virtual Machines, Storage, or Containers
+- Fields: CPU cores, RAM (GB), Storage (GB), Region
+
+### 3. Policy Engine
+Validates every request before provisioning:
+
+| Rule | Limit |
+|------|-------|
+| Max CPU | 4 cores |
+| Max RAM | 8 GB |
+| Max Storage | 100 GB |
+| Allowed Regions | Asia, India |
+
+Violations are logged and displayed with clear error messages.
+
+### 4. AI Resource Optimizer (NEW)
+Route: `/optimizer`
+
+Recommends optimal resource configuration based on workload level:
+
+| Workload | CPU | RAM | Storage |
+|----------|-----|-----|---------|
+| Low      | 1   | 2 GB | 20 GB  |
+| Medium   | 2   | 4 GB | 50 GB  |
+| High     | 4   | 8 GB | 100 GB |
+
+Shows a policy compliance warning if limits are exceeded.
+
+### 5. Monitoring Dashboard
+- Stats: Total users, resources, active resources, violations
+- Charts (Chart.js): requests over time, violations over time, CPU usage
+
+### 6. ML Demand Prediction
+- Endpoint: `GET /predict-demand`
+- Uses scikit-learn Linear Regression
+- Predicts next 7 days of resource demand
+
+### 7. Admin Panel
+- View all users, resources, violations
+- Delete resources
+- Policy configuration reference
+
+## Demo Flow
+
+1. Register an account (select Admin role for full access)
+2. Login
+3. Go to **AI Optimizer** → select a workload level → Run Optimization
+4. Go to **Request Resource** → submit a valid request (CPU≤4, RAM≤8, Region=Asia/India)
+5. Submit a violating request (CPU=8, Region=US-East) → see it rejected
+6. Check **Violations** page → see all rejected requests logged
+7. Check **Dashboard** → view charts and click "Run Prediction"
+8. Visit **Admin Panel** (admin role required)

@@ -1,0 +1,71 @@
+from datetime import datetime, timedelta
+
+
+def predict_demand(resources):
+    if len(resources) < 2:
+        return {
+            "status": "insufficient_data",
+            "message": "Need at least 2 resource records to predict demand.",
+            "predictions": []
+        }
+
+    try:
+        from sklearn.linear_model import LinearRegression
+        import numpy as np
+
+        day_counts = {}
+        for r in resources:
+            day = r.get("created_at", "")[:10]
+            if day:
+                day_counts[day] = day_counts.get(day, 0) + 1
+
+        sorted_days = sorted(day_counts.keys())
+        base = datetime.strptime(sorted_days[0], "%Y-%m-%d")
+
+        X = []
+        y = []
+        for day in sorted_days:
+            dt = datetime.strptime(day, "%Y-%m-%d")
+            diff = (dt - base).days
+            X.append([diff])
+            y.append(day_counts[day])
+
+        X = np.array(X)
+        y = np.array(y)
+
+        model = LinearRegression()
+        model.fit(X, y)
+
+        last_day = datetime.strptime(sorted_days[-1], "%Y-%m-%d")
+        last_diff = (last_day - base).days
+
+        future_predictions = []
+        for i in range(1, 8):
+            future_diff = last_diff + i
+            pred = max(0, round(float(model.predict([[future_diff]])[0]), 2))
+            future_date = (last_day + timedelta(days=i)).strftime("%Y-%m-%d")
+            future_predictions.append({"date": future_date, "predicted_requests": pred})
+
+        return {
+            "status": "success",
+            "historical_data": [{"date": d, "requests": day_counts[d]} for d in sorted_days],
+            "predictions": future_predictions,
+            "model_info": {
+                "type": "Linear Regression",
+                "slope": round(float(model.coef_[0]), 4),
+                "intercept": round(float(model.intercept_), 4),
+            }
+        }
+
+    except ImportError:
+        return {
+            "status": "error",
+            "message": "scikit-learn not installed. Run: pip install scikit-learn",
+            "predictions": []
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": str(e),
+            "predictions": []
+        }

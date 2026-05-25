@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}Login{% endblock %}
+
+{% block auth_content %}
+<div class="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 flex items-center justify-center px-4">
+  <div class="w-full max-w-md">
+    <div class="text-center mb-8">
+      <div class="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-2xl mb-4 shadow-lg">
+        <i class="fas fa-cloud text-white text-2xl"></i>
+      </div>
+      <h1 class="text-3xl font-bold text-white">CloudPortal</h1>
+      <p class="text-slate-400 mt-1">Self-Service Cloud Resource Portal</p>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-xl p-8">
+      <h2 class="text-xl font-semibold text-slate-800 mb-6">Sign In</h2>
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, message in messages %}
+            <div class="mb-4 px-4 py-3 rounded-lg text-sm font-medium
+              {% if category == 'error' %}bg-red-50 text-red-700 border border-red-200
+              {% else %}bg-green-50 text-green-700 border border-green-200{% endif %}">
+              {{ message }}
+            </div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+
+      <form method="POST" action="/login" class="space-y-5">
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1.5">Username</label>
+          <div class="relative">
+            <div class="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+              <i class="fas fa-user text-slate-400"></i>
+            </div>
+            <input
+              type="text"
+              name="username"
+              required
+              placeholder="Enter your username"
+              class="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1.5">Password</label>
+          <div class="relative">
+            <div class="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+              <i class="fas fa-lock text-slate-400"></i>
+            </div>
+            <input
+              type="password"
+              name="password"
+              required
+              placeholder="Enter your password"
+              class="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+        </div>
+
+        <button
+          type="submit"
+          class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-lg transition-colors duration-200"
+        >
+          Sign In
+        </button>
+      </form>
+
+      <div class="mt-6 text-center">
+        <p class="text-sm text-slate-500">
+          Don't have an account?
+          <a href="/register" class="text-blue-600 hover:text-blue-700 font-medium">Register here</a>
+        </p>
+      </div>
+    </div>
+
+    <p class="text-center text-slate-500 text-xs mt-6">
+      Policy Engine Active &bull; Regions: Asia, India only
+    </p>
+  </div>
+</div>
+{% endblock %}

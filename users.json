@@ -1,0 +1,291 @@
+import os
+import json
+import uuid
+from datetime import datetime
+from functools import wraps
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify, flash
+import bcrypt
+from policy_engine import PolicyEngine
+from data_storage import DataStorage
+from ml_model import predict_demand
+
+app = Flask(__name__)
+app.secret_key = os.environ.get("SECRET_KEY", "cloud-portal-secret-key-2024")
+
+storage = DataStorage()
+policy = PolicyEngine()
+
+
+def login_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if "user_id" not in session:
+            return redirect(url_for("login"))
+        return f(*args, **kwargs)
+    return decorated
+
+
+def admin_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if "user_id" not in session:
+            return redirect(url_for("login"))
+        user = storage.get_user_by_id(session["user_id"])
+        if not user or user.get("role") != "admin":
+            flash("Admin access required.", "error")
+            return redirect(url_for("dashboard"))
+        return f(*args, **kwargs)
+    return decorated
+
+
+@app.route("/")
+def index():
+    if "user_id" in session:
+        return redirect(url_for("dashboard"))
+    return redirect(url_for("login"))
+
+
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "").strip()
+        role = request.form.get("role", "user")
+
+        if not username or not password:
+            flash("Username and password are required.", "error")
+            return render_template("register.html")
+
+        if len(password) < 6:
+            flash("Password must be at least 6 characters.", "error")
+            return render_template("register.html")
+
+        if storage.get_user_by_username(username):
+            flash("Username already exists.", "error")
+            return render_template("register.html")
+
+        hashed = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt(rounds=8)).decode("utf-8")
+        user_id = str(uuid.uuid4())
+        storage.add_user({
+            "id": user_id,
+            "username": username,
+            "password": hashed,
+            "role": role if role in ["admin", "user"] else "user",
+            "created_at": datetime.utcnow().isoformat()
+        })
+        flash("Registration successful! Please log in.", "success")
+        return redirect(url_for("login"))
+
+    return render_template("register.html")
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "").strip()
+
+        user = storage.get_user_by_username(username)
+        if not user:
+            flash("Invalid username or password.", "error")
+            return render_template("login.html")
+
+        if not bcrypt.checkpw(password.encode("utf-8"), user["password"].encode("utf-8")):
+            flash("Invalid username or password.", "error")
+            return render_template("login.html")
+
+        session["user_id"] = user["id"]
+        session["username"] = user["username"]
+        session["role"] = user["role"]
+        flash(f"Welcome back, {username}!", "success")
+        return redirect(url_for("dashboard"))
+
+    return render_template("login.html")
+
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    flash("You have been logged out.", "success")
+    return redirect(url_for("login"))
+
+
+@app.route("/dashboard")
+@login_required
+def dashboard():
+    users = storage.get_all_users()
+    resources = storage.get_all_resources()
+    violations = storage.get_all_violations()
+
+    active_resources = [r for r in resources if r.get("status") == "ACTIVE"]
+
+    resources_by_day = {}
+    for r in resources:
+        day = r.get("created_at", "")[:10]
+        resources_by_day[day] = resources_by_day.get(day, 0) + 1
+
+    violations_by_day = {}
+    for v in violations:
+        day = v.get("created_at", "")[:10]
+        violations_by_day[day] = violations_by_day.get(day, 0) + 1
+
+    cpu_data = [r.get("cpu", 0) for r in resources[-10:]]
+
+    stats = {
+        "total_users": len(users),
+        "total_resources": len(resources),
+        "active_resources": len(active_resources),
+        "policy_violations": len(violations),
+    }
+
+    return render_template(
+        "dashboard.html",
+        stats=stats,
+        resources_by_day=json.dumps(resources_by_day),
+        violations_by_day=json.dumps(violations_by_day),
+        cpu_data=json.dumps(cpu_data),
+        recent_resources=resources[-5:][::-1],
+        recent_violations=violations[-5:][::-1],
+    )
+
+
+@app.route("/request-resource", methods=["GET", "POST"])
+@login_required
+def request_resource():
+    if request.method == "POST":
+        resource_type = request.form.get("resource_type", "")
+        cpu = int(request.form.get("cpu", 0))
+        ram = int(request.form.get("ram", 0))
+        storage_gb = int(request.form.get("storage", 0))
+        region = request.form.get("region", "")
+
+        resource_data = {
+            "resource_type": resource_type,
+            "cpu": cpu,
+            "ram": ram,
+            "storage": storage_gb,
+            "region": region,
+        }
+
+        violations = policy.check(resource_data)
+
+        if violations:
+            for v in violations:
+                violation_record = {
+                    "id": str(uuid.uuid4()),
+                    "user_id": session["user_id"],
+                    "username": session["username"],
+                    "resource_type": resource_type,
+                    "violation": v,
+                    "request": resource_data,
+                    "created_at": datetime.utcnow().isoformat(),
+                }
+                storage.add_violation(violation_record)
+            flash("Policy violation: " + "; ".join(violations), "error")
+            return render_template("request_resource.html", form_data=resource_data)
+
+        resource_id = "RES-" + str(uuid.uuid4())[:8].upper()
+        resource_record = {
+            "id": resource_id,
+            "user_id": session["user_id"],
+            "username": session["username"],
+            "resource_type": resource_type,
+            "cpu": cpu,
+            "ram": ram,
+            "storage": storage_gb,
+            "region": region,
+            "status": "ACTIVE",
+            "created_at": datetime.utcnow().isoformat(),
+        }
+        storage.add_resource(resource_record)
+        flash(f"Resource {resource_id} provisioned successfully!", "success")
+        return redirect(url_for("my_resources"))
+
+    return render_template("request_resource.html", form_data={})
+
+
+@app.route("/my-resources")
+@login_required
+def my_resources():
+    all_resources = storage.get_all_resources()
+    if session.get("role") == "admin":
+        resources = all_resources
+    else:
+        resources = [r for r in all_resources if r.get("user_id") == session["user_id"]]
+    return render_template("my_resources.html", resources=resources[::-1])
+
+
+@app.route("/violations")
+@login_required
+def violations():
+    all_violations = storage.get_all_violations()
+    if session.get("role") == "admin":
+        violation_list = all_violations
+    else:
+        violation_list = [v for v in all_violations if v.get("user_id") == session["user_id"]]
+    return render_template("violations.html", violations=violation_list[::-1])
+
+
+@app.route("/admin")
+@admin_required
+def admin_panel():
+    users = storage.get_all_users()
+    resources = storage.get_all_resources()
+    violations = storage.get_all_violations()
+    return render_template("admin.html", users=users, resources=resources, violations=violations)
+
+
+@app.route("/admin/delete-resource/<resource_id>", methods=["POST"])
+@admin_required
+def delete_resource(resource_id):
+    storage.delete_resource(resource_id)
+    flash("Resource deleted.", "success")
+    return redirect(url_for("admin_panel"))
+
+
+@app.route("/predict-demand")
+@login_required
+def predict_demand_endpoint():
+    resources = storage.get_all_resources()
+    result = predict_demand(resources)
+    return jsonify(result)
+
+
+OPTIMIZER_PROFILES = {
+    "low":    {"cpu": 1, "ram": 2,  "storage": 20},
+    "medium": {"cpu": 2, "ram": 4,  "storage": 50},
+    "high":   {"cpu": 4, "ram": 8,  "storage": 100},
+}
+
+POLICY_LIMITS = {"cpu": 4, "ram": 8, "storage": 100}
+
+
+@app.route("/optimizer", methods=["GET", "POST"])
+@login_required
+def optimizer():
+    result = None
+    selected_level = None
+    warnings = []
+
+    if request.method == "POST":
+        level = request.form.get("workload_level", "").lower()
+        if level in OPTIMIZER_PROFILES:
+            selected_level = level
+            profile = OPTIMIZER_PROFILES[level]
+            result = profile.copy()
+
+            if profile["cpu"] > POLICY_LIMITS["cpu"]:
+                warnings.append(f"CPU ({profile['cpu']} cores) exceeds policy limit of {POLICY_LIMITS['cpu']} cores.")
+            if profile["ram"] > POLICY_LIMITS["ram"]:
+                warnings.append(f"RAM ({profile['ram']} GB) exceeds policy limit of {POLICY_LIMITS['ram']} GB.")
+            if profile["storage"] > POLICY_LIMITS["storage"]:
+                warnings.append(f"Storage ({profile['storage']} GB) exceeds policy limit of {POLICY_LIMITS['storage']} GB.")
+        else:
+            flash("Please select a valid workload level.", "error")
+
+    return render_template("optimizer.html", result=result, selected_level=selected_level, warnings=warnings)
+
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=False)

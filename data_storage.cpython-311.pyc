@@ -1,0 +1,242 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}Overview Dashboard{% endblock %}
+
+{% block content %}
+<!-- Stats Cards -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+  <div class="stat-card">
+    <div class="flex items-center justify-between mb-3">
+      <p class="text-sm font-medium text-slate-500">Total Users</p>
+      <div class="w-9 h-9 bg-blue-50 rounded-lg flex items-center justify-center">
+        <i class="fas fa-users text-blue-600 text-sm"></i>
+      </div>
+    </div>
+    <p class="text-3xl font-bold text-slate-800">{{ stats.total_users }}</p>
+    <p class="text-xs text-slate-400 mt-1">Registered accounts</p>
+  </div>
+
+  <div class="stat-card">
+    <div class="flex items-center justify-between mb-3">
+      <p class="text-sm font-medium text-slate-500">Total Resources</p>
+      <div class="w-9 h-9 bg-purple-50 rounded-lg flex items-center justify-center">
+        <i class="fas fa-server text-purple-600 text-sm"></i>
+      </div>
+    </div>
+    <p class="text-3xl font-bold text-slate-800">{{ stats.total_resources }}</p>
+    <p class="text-xs text-slate-400 mt-1">All provisioned resources</p>
+  </div>
+
+  <div class="stat-card">
+    <div class="flex items-center justify-between mb-3">
+      <p class="text-sm font-medium text-slate-500">Active Resources</p>
+      <div class="w-9 h-9 bg-green-50 rounded-lg flex items-center justify-center">
+        <i class="fas fa-circle-check text-green-600 text-sm"></i>
+      </div>
+    </div>
+    <p class="text-3xl font-bold text-slate-800">{{ stats.active_resources }}</p>
+    <p class="text-xs text-slate-400 mt-1">Currently running</p>
+  </div>
+
+  <div class="stat-card">
+    <div class="flex items-center justify-between mb-3">
+      <p class="text-sm font-medium text-slate-500">Policy Violations</p>
+      <div class="w-9 h-9 bg-red-50 rounded-lg flex items-center justify-center">
+        <i class="fas fa-triangle-exclamation text-red-600 text-sm"></i>
+      </div>
+    </div>
+    <p class="text-3xl font-bold text-slate-800">{{ stats.policy_violations }}</p>
+    <p class="text-xs text-slate-400 mt-1">Rejected requests</p>
+  </div>
+</div>
+
+<!-- Charts Row -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-8">
+  <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-6 lg:col-span-2">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="font-semibold text-slate-800">Resource Requests Over Time</h3>
+      <span class="text-xs text-slate-400 bg-slate-50 px-2 py-1 rounded">Daily</span>
+    </div>
+    <canvas id="resourceChart" height="120"></canvas>
+  </div>
+
+  <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="font-semibold text-slate-800">Policy Violations</h3>
+      <span class="text-xs text-slate-400 bg-slate-50 px-2 py-1 rounded">Daily</span>
+    </div>
+    <canvas id="violationChart" height="120"></canvas>
+  </div>
+</div>
+
+<!-- CPU Chart + ML Prediction -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-8">
+  <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="font-semibold text-slate-800">CPU Usage Simulation</h3>
+      <span class="text-xs text-slate-400 bg-slate-50 px-2 py-1 rounded">Last 10 resources</span>
+    </div>
+    <canvas id="cpuChart" height="130"></canvas>
+  </div>
+
+  <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="font-semibold text-slate-800">ML Demand Prediction</h3>
+      <button onclick="loadPrediction()" class="text-xs bg-blue-600 text-white px-3 py-1 rounded-lg hover:bg-blue-700 transition-colors">
+        <i class="fas fa-brain mr-1"></i> Run Prediction
+      </button>
+    </div>
+    <div id="prediction-result" class="text-sm text-slate-500 text-center py-8">
+      <i class="fas fa-robot text-3xl mb-2 text-slate-300 block"></i>
+      Click "Run Prediction" to generate ML forecast
+    </div>
+  </div>
+</div>
+
+<!-- Recent Activity -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+  <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
+    <h3 class="font-semibold text-slate-800 mb-4">Recent Resources</h3>
+    {% if recent_resources %}
+    <div class="space-y-3">
+      {% for r in recent_resources %}
+      <div class="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center">
+            <i class="fas fa-{% if r.resource_type == 'Virtual Machine' %}desktop{% elif r.resource_type == 'Storage' %}hard-drive{% else %}box{% endif %} text-blue-600 text-xs"></i>
+          </div>
+          <div>
+            <p class="text-sm font-medium text-slate-700">{{ r.id }}</p>
+            <p class="text-xs text-slate-400">{{ r.resource_type }} &bull; {{ r.region }}</p>
+          </div>
+        </div>
+        <span class="badge-active">ACTIVE</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-slate-400 text-sm text-center py-4">No resources yet</p>
+    {% endif %}
+  </div>
+
+  <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
+    <h3 class="font-semibold text-slate-800 mb-4">Recent Violations</h3>
+    {% if recent_violations %}
+    <div class="space-y-3">
+      {% for v in recent_violations %}
+      <div class="flex items-start justify-between py-2 border-b border-slate-50 last:border-0">
+        <div class="flex items-start gap-3">
+          <div class="w-8 h-8 bg-red-50 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+            <i class="fas fa-ban text-red-500 text-xs"></i>
+          </div>
+          <div>
+            <p class="text-sm font-medium text-slate-700">{{ v.username }}</p>
+            <p class="text-xs text-red-500 mt-0.5">{{ v.violation[:60] }}{% if v.violation|length > 60 %}...{% endif %}</p>
+          </div>
+        </div>
+        <span class="badge-violation">Rejected</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-slate-400 text-sm text-center py-4">No violations recorded</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const resourcesByDay = {{ resources_by_day | safe }};
+const violationsByDay = {{ violations_by_day | safe }};
+const cpuData = {{ cpu_data | safe }};
+
+function makeChart(id, labels, data, color, label) {
+  const ctx = document.getElementById(id);
+  if (!ctx) return;
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: label,
+        data: data,
+        borderColor: color,
+        backgroundColor: color + '20',
+        tension: 0.4,
+        fill: true,
+        pointRadius: 4,
+        pointBackgroundColor: color,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { beginAtZero: true, grid: { color: '#f1f5f9' }, ticks: { stepSize: 1 } },
+        x: { grid: { display: false } }
+      }
+    }
+  });
+}
+
+const rDays = Object.keys(resourcesByDay);
+const rCounts = Object.values(resourcesByDay);
+makeChart('resourceChart', rDays.length ? rDays : ['No data'], rCounts.length ? rCounts : [0], '#2563eb', 'Requests');
+
+const vDays = Object.keys(violationsByDay);
+const vCounts = Object.values(violationsByDay);
+makeChart('violationChart', vDays.length ? vDays : ['No data'], vCounts.length ? vCounts : [0], '#ef4444', 'Violations');
+
+const cpuCtx = document.getElementById('cpuChart');
+if (cpuCtx) {
+  new Chart(cpuCtx, {
+    type: 'bar',
+    data: {
+      labels: cpuData.map((_, i) => 'R' + (i + 1)),
+      datasets: [{
+        label: 'CPU Cores',
+        data: cpuData.length ? cpuData : [0],
+        backgroundColor: '#8b5cf680',
+        borderColor: '#8b5cf6',
+        borderWidth: 2,
+        borderRadius: 6,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { beginAtZero: true, max: 6, grid: { color: '#f1f5f9' } },
+        x: { grid: { display: false } }
+      }
+    }
+  });
+}
+
+async function loadPrediction() {
+  const el = document.getElementById('prediction-result');
+  el.innerHTML = '<i class="fas fa-spinner fa-spin text-blue-500 text-2xl block mb-2"></i><p>Running ML model...</p>';
+  try {
+    const res = await fetch('/predict-demand');
+    const data = await res.json();
+    if (data.status === 'success') {
+      let html = '<div class="space-y-2">';
+      html += `<p class="text-xs text-slate-500 mb-2">Model: ${data.model_info.type} &bull; Slope: ${data.model_info.slope}</p>`;
+      data.predictions.slice(0, 5).forEach(p => {
+        html += `<div class="flex justify-between items-center text-sm">
+          <span class="text-slate-600">${p.date}</span>
+          <span class="font-semibold text-blue-600">${p.predicted_requests} req</span>
+        </div>`;
+      });
+      html += '</div>';
+      el.innerHTML = html;
+    } else {
+      el.innerHTML = `<p class="text-red-500">${data.message}</p>`;
+    }
+  } catch (e) {
+    el.innerHTML = '<p class="text-red-500">Failed to load prediction</p>';
+  }
+}
+</script>
+{% endblock %}

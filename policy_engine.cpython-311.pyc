@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}My Resources{% endblock %}
+{% block page_title %}My Resources{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-xl shadow-sm border border-slate-100">
+  <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+    <div>
+      <h2 class="font-semibold text-slate-800">Provisioned Resources</h2>
+      <p class="text-sm text-slate-500 mt-0.5">{{ resources | length }} resource(s) total</p>
+    </div>
+    <a href="/request-resource" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+      <i class="fas fa-plus mr-1.5"></i> New Request
+    </a>
+  </div>
+
+  {% if resources %}
+  <div class="overflow-x-auto">
+    <table class="w-full">
+      <thead>
+        <tr class="bg-slate-50 border-b border-slate-100">
+          <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Resource ID</th>
+          <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Type</th>
+          <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">CPU</th>
+          <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">RAM</th>
+          <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Storage</th>
+          <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Region</th>
+          <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
+          <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Created</th>
+          {% if session.role == 'admin' %}
+          <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Owner</th>
+          {% endif %}
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-50">
+        {% for r in resources %}
+        <tr class="hover:bg-slate-50 transition-colors">
+          <td class="px-6 py-4">
+            <div class="flex items-center gap-2">
+              <div class="w-7 h-7 bg-blue-50 rounded-md flex items-center justify-center">
+                <i class="fas fa-{% if r.resource_type == 'Virtual Machine' %}desktop{% elif r.resource_type == 'Storage' %}hard-drive{% else %}box{% endif %} text-blue-600 text-xs"></i>
+              </div>
+              <span class="text-sm font-mono font-medium text-slate-700">{{ r.id }}</span>
+            </div>
+          </td>
+          <td class="px-6 py-4 text-sm text-slate-600">{{ r.resource_type }}</td>
+          <td class="px-6 py-4 text-sm text-slate-600">{{ r.cpu }} cores</td>
+          <td class="px-6 py-4 text-sm text-slate-600">{{ r.ram }} GB</td>
+          <td class="px-6 py-4 text-sm text-slate-600">{{ r.storage }} GB</td>
+          <td class="px-6 py-4 text-sm text-slate-600">{{ r.region }}</td>
+          <td class="px-6 py-4">
+            <span class="badge-active">{{ r.status }}</span>
+          </td>
+          <td class="px-6 py-4 text-sm text-slate-500">{{ r.created_at[:10] }}</td>
+          {% if session.role == 'admin' %}
+          <td class="px-6 py-4 text-sm text-slate-600">{{ r.username }}</td>
+          {% endif %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="py-16 text-center">
+    <i class="fas fa-server text-4xl text-slate-200 mb-3 block"></i>
+    <p class="text-slate-500 font-medium">No resources provisioned yet</p>
+    <p class="text-sm text-slate-400 mt-1">Submit a resource request to get started</p>
+    <a href="/request-resource" class="inline-block mt-4 bg-blue-600 text-white text-sm font-medium px-5 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+      Request Resource
+    </a>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
