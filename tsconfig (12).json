@@ -8,4 +8,4 @@
 export interface HealthStatus {
     status: string;
 }
-//# sourceMappingURL=api.schemas.d.ts.map
+//# sourceMappingURL=healthStatus.d.ts.map
